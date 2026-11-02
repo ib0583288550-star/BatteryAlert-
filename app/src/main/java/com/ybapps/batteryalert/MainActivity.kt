@@ -165,19 +165,21 @@ class MainActivity : ComponentActivity() {
                     }
 
                     Spacer(Modifier.height(18.dp))
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text(if (active) "המעקב פעיל" else "המעקב מושהה", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                            Text("המעקב פועל ברקע וגם אחרי הפעלה מחדש", color = Color.LightGray, fontSize = 12.sp)
+                    Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF1B3045)), shape = RoundedCornerShape(20.dp), modifier = Modifier.fillMaxWidth()) {
+                        Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text("מעקב ברקע", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                                Text(if (active) "המעקב פעיל — כולל אחרי הפעלה מחדש" else "המעקב מושהה", color = Color.LightGray, fontSize = 12.sp)
+                            }
+                            Switch(active, {
+                                active = it
+                                prefs.edit().putBoolean("enabled", it).apply()
+                                val service = Intent(this@MainActivity, BatteryMonitorService::class.java)
+                                if (it) {
+                                    if (Build.VERSION.SDK_INT >= 26) startForegroundService(service) else startService(service)
+                                } else stopService(service)
+                            })
                         }
-                        Switch(active, {
-                            active = it
-                            prefs.edit().putBoolean("enabled", it).apply()
-                            val service = Intent(this@MainActivity, BatteryMonitorService::class.java)
-                            if (it) {
-                                if (Build.VERSION.SDK_INT >= 26) startForegroundService(service) else startService(service)
-                            } else stopService(service)
-                        })
                     }
                     Spacer(Modifier.height(16.dp))
                     Text("yb apps", color = Color(0xFF71899D), fontSize = 11.sp)
