@@ -23,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.util.Locale
@@ -139,7 +140,7 @@ class MainActivity : ComponentActivity() {
                     Spacer(Modifier.height(14.dp))
                     Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF1B3045)), shape = RoundedCornerShape(20.dp), modifier = Modifier.fillMaxWidth()) {
                         Column(Modifier.padding(16.dp)) {
-                            Text("\u200Fאיך לקבל התראה?\u200F", color = Color.White, fontWeight = FontWeight.Bold)
+                            Text("איך לקבל התרעה?", color = Color.White, fontWeight = FontWeight.Bold, style = LocalTextStyle.current.copy(textDirection = TextDirection.Rtl))
                             listOf("both" to "צליל + הודעה במסך", "sound" to "צליל בלבד", "screen" to "הודעה במסך בלבד").forEach { (v, label) ->
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     RadioButton(mode == v, { mode = v; prefs.edit().putString("mode", v).apply() })
