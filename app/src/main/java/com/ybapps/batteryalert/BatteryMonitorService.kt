@@ -60,7 +60,10 @@ class BatteryMonitorService : Service() {
                     .setAutoCancel(true).build()
                 (getSystemService(NOTIFICATION_SERVICE) as NotificationManager).notify(threshold, n)
             }
-            if (mode != "screen") {
+            val soundEnabled = if (prefs.contains("sound_levels")) {
+                prefs.getStringSet("sound_levels", emptySet())?.contains(threshold.toString()) == true
+            } else true
+            if (mode != "screen" && soundEnabled) {
                 try {
                     ToneGenerator(AudioManager.STREAM_ALARM, 100)
                         .startTone(ToneGenerator.TONE_CDMA_ALERT_CALL_GUARD, 900)
