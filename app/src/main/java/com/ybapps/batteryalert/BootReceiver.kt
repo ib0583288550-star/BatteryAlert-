@@ -1,16 +1,4 @@
 package com.ybapps.batteryalert
-
-import android.content.BroadcastReceiver
-import android.content.Context
-import android.content.Intent
+import android.content.*
 import android.os.Build
-
-class BootReceiver : BroadcastReceiver() {
-    override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action == Intent.ACTION_BOOT_COMPLETED &&
-            context.getSharedPreferences("battery", Context.MODE_PRIVATE).getBoolean("enabled", true)) {
-            val service = Intent(context, BatteryMonitorService::class.java)
-            if (Build.VERSION.SDK_INT >= 26) context.startForegroundService(service) else context.startService(service)
-        }
-    }
-}
+class BootReceiver:BroadcastReceiver(){override fun onReceive(c:Context,i:Intent){if(i.action==Intent.ACTION_BOOT_COMPLETED&&c.getSharedPreferences("battery_alert",0).getBoolean("enabled",true)){val s=Intent(c,BatteryMonitorService::class.java);if(Build.VERSION.SDK_INT>=26)c.startForegroundService(s) else c.startService(s)}}}

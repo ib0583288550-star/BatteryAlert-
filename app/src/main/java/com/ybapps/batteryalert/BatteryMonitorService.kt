@@ -1,60 +1,34 @@
 package com.ybapps.batteryalert
-
 import android.app.*
 import android.content.*
+import android.media.AudioManager
+import android.media.ToneGenerator
 import android.os.*
 import androidx.core.app.NotificationCompat
-
 class BatteryMonitorService : Service() {
-    private var lastAlert = -1
-    private val batteryReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context, intent: Intent) {
-            if (intent.action != Intent.ACTION_BATTERY_CHANGED) return
-            if (!getSharedPreferences("battery", MODE_PRIVATE).getBoolean("enabled", true)) return
-            val level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
-            val scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, 100).coerceAtLeast(1)
-            val percent = (level * 100 / scale)
-            val plugged = intent.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0) != 0
-            if (plugged) { lastAlert = -1; return }
-            val threshold = when {
-                percent <= 5 -> 5
-                percent <= 10 -> 10
-                percent <= 15 -> 15
-                else -> -1
-            }
-            if (threshold > 0 && threshold != lastAlert) {
-                lastAlert = threshold
-                showAlert(threshold, percent)
-            }
-        }
-    }
-
-    override fun onCreate() {
-        super.onCreate()
-        val manager = getSystemService(NotificationManager::class.java)
-        manager.createNotificationChannel(NotificationChannel("monitor", "מעקב סוללה", NotificationManager.IMPORTANCE_LOW))
-        manager.createNotificationChannel(NotificationChannel("alerts", "התרעות סוללה", NotificationManager.IMPORTANCE_HIGH).apply { enableVibration(true) })
-        startForeground(10, NotificationCompat.Builder(this, "monitor")
-            .setSmallIcon(R.drawable.ic_battery_alert).setContentTitle("התרעת סוללה")
-            .setContentText("מעקב אחר רמת הסוללה פעיל").setOngoing(true).build())
-        registerReceiver(batteryReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
-    }
-
-    private fun showAlert(threshold: Int, current: Int) {
-        val notification = NotificationCompat.Builder(this, "alerts")
-            .setSmallIcon(R.drawable.ic_battery_alert)
-            .setContentTitle("הסוללה הגיעה ל־$threshold%")
-            .setContentText("רמת הסוללה כרגע: $current%")
-            .setPriority(NotificationCompat.PRIORITY_MAX)
-            .setDefaults(NotificationCompat.DEFAULT_ALL)
-            .setAutoCancel(true).build()
-        getSystemService(NotificationManager::class.java).notify(threshold, notification)
-    }
-
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int) = START_STICKY
-    override fun onDestroy() {
-        try { unregisterReceiver(batteryReceiver) } catch (_: Exception) { }
-        super.onDestroy()
-    }
-    override fun onBind(intent: Intent?) = null
+ private var receiver: BroadcastReceiver? = null
+ private val prefs by lazy { getSharedPreferences("battery_alert", MODE_PRIVATE) }
+ override fun onCreate() {
+  super.onCreate()
+  if (Build.VERSION.SDK_INT >= 26) { val nm=getSystemService(NOTIFICATION_SERVICE) as NotificationManager; nm.createNotificationChannel(NotificationChannel("monitor","מעקב סוללה",NotificationManager.IMPORTANCE_LOW)); nm.createNotificationChannel(NotificationChannel("alerts","התראות סוללה",NotificationManager.IMPORTANCE_HIGH)) }
+  val ongoing=NotificationCompat.Builder(this,"monitor").setSmallIcon(android.R.drawable.ic_lock_idle_charging).setContentTitle("התרעת סוללה פעילה").setContentText("עוקב אחרי 15%, 10% ו־5%").setOngoing(true).build()
+  startForeground(10,ongoing)
+  receiver=object:BroadcastReceiver(){ override fun onReceive(c:Context,i:Intent){ if(i.action!=Intent.ACTION_BATTERY_CHANGED)return
+   val p=i.getIntExtra(BatteryManager.EXTRA_LEVEL,-1)*100/i.getIntExtra(BatteryManager.EXTRA_SCALE,100).coerceAtLeast(1)
+   alert(p,15,"a15"); alert(p,10,"a10"); alert(p,5,"a5")
+  }}
+  registerReceiver(receiver,IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+ }
+ private fun alert(p:Int,t:Int,k:String){
+  if(p>t+2)prefs.edit().putBoolean(k,false).apply()
+  if(p<=t&&!prefs.getBoolean(k,false)){
+   prefs.edit().putBoolean(k,true).apply()
+   val mode=prefs.getString("mode","both")?:"both"
+   if(mode!="sound"){ val n=NotificationCompat.Builder(this,"alerts").setSmallIcon(android.R.drawable.ic_lock_idle_low_battery).setContentTitle("התרעת סוללה").setContentText("הסוללה הגיעה ל־$t%").setPriority(NotificationCompat.PRIORITY_MAX).setAutoCancel(true).build(); (getSystemService(NOTIFICATION_SERVICE) as NotificationManager).notify(t,n) }
+   if(mode!="screen")try{ToneGenerator(AudioManager.STREAM_ALARM,100).startTone(ToneGenerator.TONE_CDMA_ALERT_CALL_GUARD,900)}catch(_:Exception){}
+  }
+ }
+ override fun onStartCommand(i:Intent?,f:Int,id:Int)=START_STICKY
+ override fun onDestroy(){receiver?.let{try{unregisterReceiver(it)}catch(_:Exception){}};super.onDestroy()}
+ override fun onBind(i:Intent?)=null
 }
