@@ -52,12 +52,6 @@ class BatteryMonitorService : Service() {
             prefs.edit().putBoolean(key, true).apply()
             val mode = prefs.getString("mode", "both") ?: "both"
             val locked = prefs.getBoolean("locked_alert", false)
-            if (mode != "screen") {
-                try {
-                    ToneGenerator(AudioManager.STREAM_ALARM, 100)
-                        .startTone(ToneGenerator.TONE_CDMA_ALERT_CALL_GUARD, 900)
-                } catch (_: Exception) {}
-            }
             if (mode != "sound" && !locked) {
                 val n = NotificationCompat.Builder(this, "alerts")
                     .setSmallIcon(android.R.drawable.ic_lock_idle_low_battery)
@@ -66,6 +60,12 @@ class BatteryMonitorService : Service() {
                     .setPriority(NotificationCompat.PRIORITY_MAX)
                     .setAutoCancel(true).build()
                 (getSystemService(NOTIFICATION_SERVICE) as NotificationManager).notify(threshold, n)
+            }
+            if (mode != "screen") {
+                try {
+                    ToneGenerator(AudioManager.STREAM_ALARM, 100)
+                        .startTone(ToneGenerator.TONE_CDMA_ALERT_CALL_GUARD, 900)
+                } catch (_: Exception) {}
             }
         }
     }
