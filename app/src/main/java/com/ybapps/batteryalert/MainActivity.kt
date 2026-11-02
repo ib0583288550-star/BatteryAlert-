@@ -139,7 +139,7 @@ class MainActivity : ComponentActivity() {
                     Spacer(Modifier.height(14.dp))
                     Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF1B3045)), shape = RoundedCornerShape(20.dp), modifier = Modifier.fillMaxWidth()) {
                         Column(Modifier.padding(16.dp)) {
-                            Text("איך לקבל התראה?", color = Color.White, fontWeight = FontWeight.Bold)
+                            Text("\u200Fאיך לקבל התראה?\u200F", color = Color.White, fontWeight = FontWeight.Bold)
                             listOf("both" to "צליל + הודעה במסך", "sound" to "צליל בלבד", "screen" to "הודעה במסך בלבד").forEach { (v, label) ->
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     RadioButton(mode == v, { mode = v; prefs.edit().putString("mode", v).apply() })
