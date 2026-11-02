@@ -58,6 +58,7 @@ class MainActivity : ComponentActivity() {
             var lockedAlert by remember { mutableStateOf(prefs.getBoolean("locked_alert", false)) }
             var emergency by remember { mutableStateOf(prefs.getBoolean("emergency_alerts", false)) }
             var emergencyLevels by remember { mutableStateOf(prefs.getStringSet("emergency_levels", emptySet())?.toSet() ?: emptySet()) }
+            var soundLevels by remember { mutableStateOf(prefs.getStringSet("sound_levels", (listOf("15", "10", "5") + emergencyLevels).toSet())?.toSet() ?: emptySet()) }
             var info by remember { mutableStateOf(readBatteryInfo(null)) }
 
             DisposableEffect(Unit) {
@@ -117,6 +118,7 @@ class MainActivity : ComponentActivity() {
 
                     Spacer(Modifier.height(22.dp))
                     Text("נקודות התרעה", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.Start))
+                    Text("סמן ✓ מעל אחוז כדי להפעיל בו צליל. ללא סימון תתקבל התרעה ללא צליל.", color = Color.LightGray, fontSize = 12.sp, modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp))
                     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         val shownLevels = listOf("15", "10", "5") + emergencyLevels.sortedByDescending { it.toInt() }
                         shownLevels.chunked(4).forEach { group ->
@@ -124,9 +126,17 @@ class MainActivity : ComponentActivity() {
                                 group.forEach { level ->
                                     val tint = when (level) { "15" -> Color(0xFF55E6A5); "10" -> Color(0xFFFFC857); "5" -> Color(0xFFFF647C); else -> Color(0xFFFF8A65) }
                                     Card(Modifier.weight(1f), colors = CardDefaults.cardColors(containerColor = Color(0xFF1B3045)), shape = RoundedCornerShape(18.dp)) {
-                                        Column(Modifier.fillMaxWidth().padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Column(Modifier.fillMaxWidth().padding(horizontal = 5.dp, vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+                                                Checkbox(checked = soundLevels.contains(level), onCheckedChange = { checked ->
+                                                    val updated = if (checked) soundLevels + level else soundLevels - level
+                                                    soundLevels = updated
+                                                    prefs.edit().putStringSet("sound_levels", updated).apply()
+                                                }, modifier = Modifier.size(30.dp))
+                                                Text("צליל", color = if (soundLevels.contains(level)) Color(0xFF55E6A5) else Color.LightGray, fontSize = 10.sp)
+                                            }
                                             Text("$level%", color = tint, fontSize = 23.sp, fontWeight = FontWeight.Bold)
-                                            Text("התראה", color = Color.LightGray, fontSize = 12.sp)
+                                            Text("התרעה", color = Color.LightGray, fontSize = 11.sp)
                                         }
                                     }
                                 }
@@ -147,7 +157,9 @@ class MainActivity : ComponentActivity() {
                                     Card(Modifier.weight(1f).clickable {
                                         val updated = if (selected) emergencyLevels - level else emergencyLevels + level
                                         emergencyLevels = updated
-                                        prefs.edit().putStringSet("emergency_levels", updated).putBoolean("emergency_alerts", updated.isNotEmpty()).apply()
+                                        val updatedSounds = if (!selected) soundLevels + level else soundLevels - level
+                                        soundLevels = updatedSounds
+                                        prefs.edit().putStringSet("emergency_levels", updated).putStringSet("sound_levels", updatedSounds).putBoolean("emergency_alerts", updated.isNotEmpty()).apply()
                                         emergency = updated.isNotEmpty()
                                     }, colors = CardDefaults.cardColors(containerColor = if (selected) Color(0xFF245B50) else Color(0xFF102333)), shape = RoundedCornerShape(14.dp)) {
                                         Column(Modifier.fillMaxWidth().padding(vertical = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
