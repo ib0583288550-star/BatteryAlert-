@@ -5,10 +5,17 @@ import android.content.*
 import android.media.AudioManager
 import android.media.ToneGenerator
 import android.os.*
+import android.graphics.Color
+import android.graphics.PixelFormat
+import android.graphics.drawable.GradientDrawable
+import android.view.Gravity
+import android.view.WindowManager
+import android.widget.TextView
 import androidx.core.app.NotificationCompat
 
 class BatteryMonitorService : Service() {
     private var receiver: BroadcastReceiver? = null
+    private var overlayView: TextView? = null
     private val prefs by lazy { getSharedPreferences("battery_alert", MODE_PRIVATE) }
 
     override fun onCreate() {
@@ -81,7 +88,20 @@ class BatteryMonitorService : Service() {
 
     private fun updatePersistentAlert(p: Int, plugged: Boolean) {
         val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
-        if (!prefs.getBoolean("locked_alert", false) || plugged || p > 15) {
+        val overlayEnabled = prefs.getBoolean("overlay_alert", false) && Build.VERSION.SDK_INT >= 23 && android.provider.Settings.canDrawOverlays(this)
+        if (plugged || p > 15) {
+            removeOverlay()
+            nm.cancel(99)
+            return
+        }
+        if (overlayEnabled) {
+            nm.cancel(99)
+            showOverlay(p)
+            return
+        } else {
+            removeOverlay()
+        }
+        if (!prefs.getBoolean("locked_alert", false)) {
             nm.cancel(99)
             return
         }
@@ -102,8 +122,50 @@ class BatteryMonitorService : Service() {
         nm.notify(99, n)
     }
 
+    private fun showOverlay(p: Int) {
+        val wm = getSystemService(WINDOW_SERVICE) as WindowManager
+        val text = when {
+            p <= 5 -> "סוללה קריטית – $p% | חבר למטען מיד"
+            p <= 10 -> "נותרו $p% סוללה – כדאי לחבר למטען"
+            else -> "נותרו $p% סוללה – חבר למטען כשיתאפשר"
+        }
+        val view = overlayView ?: TextView(this).apply {
+            setTextColor(Color.WHITE)
+            textSize = 16f
+            setPadding(22, 16, 22, 16)
+            gravity = Gravity.CENTER
+            background = GradientDrawable().apply {
+                setColor(Color.rgb(20, 43, 55))
+                cornerRadius = 28f
+                setStroke(2, Color.rgb(85, 230, 165))
+            }
+            isClickable = false
+            isFocusable = false
+        }.also { overlayView = it }
+        view.text = text
+        val params = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.MATCH_PARENT,
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+            PixelFormat.TRANSLUCENT
+        ).apply { gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL; y = 36 }
+        try {
+            if (view.parent == null) wm.addView(view, params) else wm.updateViewLayout(view, params)
+        } catch (_: Exception) {}
+    }
+
+    private fun removeOverlay() {
+        val view = overlayView ?: return
+        try { (getSystemService(WINDOW_SERVICE) as WindowManager).removeView(view) } catch (_: Exception) {}
+        overlayView = null
+    }
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int) = START_STICKY
     override fun onDestroy() {
+        removeOverlay()
         receiver?.let { try { unregisterReceiver(it) } catch (_: Exception) {} }
         super.onDestroy()
     }
