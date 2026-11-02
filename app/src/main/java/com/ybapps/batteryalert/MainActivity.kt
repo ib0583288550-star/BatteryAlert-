@@ -10,6 +10,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -19,6 +20,8 @@ import androidx.compose.material.icons.filled.BatteryChargingFull
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -54,6 +57,7 @@ class MainActivity : ComponentActivity() {
             var mode by remember { mutableStateOf(prefs.getString("mode", "both") ?: "both") }
             var lockedAlert by remember { mutableStateOf(prefs.getBoolean("locked_alert", false)) }
             var emergency by remember { mutableStateOf(prefs.getBoolean("emergency_alerts", false)) }
+            var emergencyLevels by remember { mutableStateOf(prefs.getStringSet("emergency_levels", emptySet())?.toSet() ?: emptySet()) }
             var info by remember { mutableStateOf(readBatteryInfo(null)) }
 
             DisposableEffect(Unit) {
@@ -71,6 +75,7 @@ class MainActivity : ComponentActivity() {
             }
 
             MaterialTheme(colorScheme = darkColorScheme(primary = Color(0xFF55E6A5), background = Color(0xFF0B1220), surface = Color(0xFF1B3045))) {
+                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
                 Column(
                     Modifier.fillMaxSize()
                         .background(Brush.verticalGradient(listOf(Color(0xFF12333A), Color(0xFF0B1220))))
@@ -112,28 +117,46 @@ class MainActivity : ComponentActivity() {
 
                     Spacer(Modifier.height(22.dp))
                     Text("נקודות התרעה", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.Start))
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        listOf("15%" to Color(0xFF55E6A5), "10%" to Color(0xFFFFC857), "5%" to Color(0xFFFF647C)).forEach { (v, c) ->
-                            Card(Modifier.weight(1f), colors = CardDefaults.cardColors(containerColor = Color(0xFF1B3045)), shape = RoundedCornerShape(18.dp)) {
-                                Column(Modifier.fillMaxWidth().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text(v, color = c, fontSize = 25.sp, fontWeight = FontWeight.Bold)
-                                    Text("התראה", color = Color.LightGray, fontSize = 12.sp)
+                    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        val shownLevels = listOf("15", "10", "5") + emergencyLevels.sortedByDescending { it.toInt() }
+                        shownLevels.chunked(4).forEach { group ->
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                group.forEach { level ->
+                                    val tint = when (level) { "15" -> Color(0xFF55E6A5); "10" -> Color(0xFFFFC857); "5" -> Color(0xFFFF647C); else -> Color(0xFFFF8A65) }
+                                    Card(Modifier.weight(1f), colors = CardDefaults.cardColors(containerColor = Color(0xFF1B3045)), shape = RoundedCornerShape(18.dp)) {
+                                        Column(Modifier.fillMaxWidth().padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                                            Text("$level%", color = tint, fontSize = 23.sp, fontWeight = FontWeight.Bold)
+                                            Text("התראה", color = Color.LightGray, fontSize = 12.sp)
+                                        }
+                                    }
                                 }
+                                repeat(4 - group.size) { Spacer(Modifier.weight(1f)) }
                             }
                         }
                     }
 
                     Spacer(Modifier.height(14.dp))
                     Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF1B3045)), shape = RoundedCornerShape(20.dp), modifier = Modifier.fillMaxWidth()) {
-                        Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Column(Modifier.weight(1f)) {
-                                Text("התראות חירום 4%–1%", color = Color.White, fontWeight = FontWeight.Bold)
-                                Text("התראה נוספת בכל אחוז: 4%, 3%, 2% ו־1%", color = Color.LightGray, fontSize = 12.sp)
+                        Column(Modifier.fillMaxWidth().padding(16.dp)) {
+                            Text("בחר נקודות התרעה נוספות", color = Color.White, fontWeight = FontWeight.Bold)
+                            Text("לחיצה על אחוז תוסיף אותו לרשימת נקודות ההתרעה למעלה", color = Color.LightGray, fontSize = 12.sp)
+                            Spacer(Modifier.height(10.dp))
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                listOf("4", "3", "2", "1").forEach { level ->
+                                    val selected = emergencyLevels.contains(level)
+                                    Card(Modifier.weight(1f).clickable {
+                                        val updated = if (selected) emergencyLevels - level else emergencyLevels + level
+                                        emergencyLevels = updated
+                                        prefs.edit().putStringSet("emergency_levels", updated).putBoolean("emergency_alerts", updated.isNotEmpty()).apply()
+                                        emergency = updated.isNotEmpty()
+                                    }, colors = CardDefaults.cardColors(containerColor = if (selected) Color(0xFF245B50) else Color(0xFF102333)), shape = RoundedCornerShape(14.dp)) {
+                                        Column(Modifier.fillMaxWidth().padding(vertical = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                                            Text("$level%", color = if (selected) Color(0xFF55E6A5) else Color.White, fontSize = 21.sp, fontWeight = FontWeight.Bold)
+                                            Text(if (selected) "נבחר" else "הוסף", color = Color.LightGray, fontSize = 11.sp)
+                                        }
+                                    }
+                                }
                             }
-                            Switch(emergency, {
-                                emergency = it
-                                prefs.edit().putBoolean("emergency_alerts", it).apply()
-                            })
                         }
                     }
 
@@ -184,6 +207,7 @@ class MainActivity : ComponentActivity() {
                     Spacer(Modifier.height(16.dp))
                     Text("yb apps", color = Color(0xFF71899D), fontSize = 11.sp)
                     Spacer(Modifier.height(16.dp))
+                }
                 }
             }
         }
