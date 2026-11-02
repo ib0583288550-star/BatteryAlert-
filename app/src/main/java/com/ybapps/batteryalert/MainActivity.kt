@@ -4,6 +4,8 @@ import android.Manifest
 import android.content.*
 import android.content.pm.PackageManager
 import android.os.BatteryManager
+import android.provider.Settings
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -46,9 +48,12 @@ class MainActivity : ComponentActivity() {
     private val prefs by lazy { getSharedPreferences("battery_alert", MODE_PRIVATE) }
     private val permission = registerForActivityResult(ActivityResultContracts.RequestPermission()) {}
     private var batteryReceiver: BroadcastReceiver? = null
+    private var overlayPermissionPending = false
+    private var overlayUiState by mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        overlayUiState = prefs.getBoolean("overlay_alert", false) && Settings.canDrawOverlays(this)
         if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             permission.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
@@ -199,6 +204,27 @@ class MainActivity : ComponentActivity() {
                         }
                     }
 
+                    Spacer(Modifier.height(14.dp))
+                    Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF1B3045)), shape = RoundedCornerShape(20.dp), modifier = Modifier.fillMaxWidth()) {
+                        Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text("התראה צפה קבועה", color = Color.White, fontWeight = FontWeight.Bold)
+                                Text("תישאר מעל הסרטון ולא ניתן יהיה להזיז או להחליק אותה. תוסר בחיבור למטען.", color = Color.LightGray, fontSize = 12.sp)
+                                if (!Settings.canDrawOverlays(this@MainActivity)) Text("נדרשת הרשאת הצגה מעל אפליקציות אחרות", color = Color(0xFFFFC857), fontSize = 11.sp)
+                            }
+                            Switch(overlayUiState, { enabled ->
+                                if (enabled && !Settings.canDrawOverlays(this@MainActivity)) {
+                                    overlayPermissionPending = true
+                                    startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")))
+                                } else {
+                                    overlayUiState = enabled
+                                    prefs.edit().putBoolean("overlay_alert", enabled).apply()
+                                    startMonitor()
+                                }
+                            })
+                        }
+                    }
+
                     Spacer(Modifier.height(18.dp))
                     Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF1B3045)), shape = RoundedCornerShape(20.dp), modifier = Modifier.fillMaxWidth()) {
                         Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -224,6 +250,17 @@ class MainActivity : ComponentActivity() {
             }
         }
         if (prefs.getBoolean("enabled", true)) startMonitor()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (overlayPermissionPending) {
+            overlayPermissionPending = false
+            val granted = Settings.canDrawOverlays(this)
+            overlayUiState = granted
+            prefs.edit().putBoolean("overlay_alert", granted).apply()
+            if (granted) startMonitor()
+        }
     }
 
     private fun startMonitor() {
