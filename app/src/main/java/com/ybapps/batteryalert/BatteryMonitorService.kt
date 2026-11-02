@@ -34,12 +34,11 @@ class BatteryMonitorService : Service() {
                 alert(p, 15, "a15")
                 alert(p, 10, "a10")
                 alert(p, 5, "a5")
-                if (prefs.getBoolean("emergency_alerts", false)) {
-                    alert(p, 4, "a4")
-                    alert(p, 3, "a3")
-                    alert(p, 2, "a2")
-                    alert(p, 1, "a1")
-                }
+                val selectedEmergencyLevels = prefs.getStringSet("emergency_levels", emptySet()) ?: emptySet()
+                if (selectedEmergencyLevels.contains("4")) alert(p, 4, "a4")
+                if (selectedEmergencyLevels.contains("3")) alert(p, 3, "a3")
+                if (selectedEmergencyLevels.contains("2")) alert(p, 2, "a2")
+                if (selectedEmergencyLevels.contains("1")) alert(p, 1, "a1")
                 updatePersistentAlert(p, plugged)
             }
         }
